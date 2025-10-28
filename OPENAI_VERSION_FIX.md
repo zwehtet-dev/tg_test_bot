@@ -21,7 +21,7 @@ openai==1.54.3
 langchain-openai==0.2.8
 
 # After (compatible)
-openai==1.51.0
+openai==1.52.0
 langchain-openai==0.2.5
 httpx==0.27.2
 ```
