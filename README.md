@@ -181,9 +181,10 @@ cp data/exchange_bot.db data/exchange_bot.db.backup_$(date +%Y%m%d)
 
 ## Troubleshooting
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed troubleshooting steps.
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for detailed troubleshooting guide.
 
 Common issues:
+- **ModuleNotFoundError**: Rebuild without cache: `docker-compose build --no-cache`
 - **Bot not responding**: Check logs and verify bot token
 - **OCR not working**: Verify OpenAI API key and credits
 - **Admin commands not working**: Verify admin group ID

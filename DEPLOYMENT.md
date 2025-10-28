@@ -40,7 +40,14 @@ OPENAI_API_KEY=your_actual_openai_api_key_here
 ### 3. Start the Bot
 
 ```bash
+# Build without cache to ensure fresh install
+docker-compose build --no-cache
 docker-compose up -d
+```
+
+Or use the quick start script:
+```bash
+./start.sh
 ```
 
 That's it! The bot will:

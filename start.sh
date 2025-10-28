@@ -56,7 +56,9 @@ echo ""
 
 # Build and start the bot
 echo "Building and starting the bot..."
-docker-compose up -d --build
+echo "This may take a few minutes on first run..."
+docker-compose build --no-cache
+docker-compose up -d
 
 echo ""
 echo "=========================================="
