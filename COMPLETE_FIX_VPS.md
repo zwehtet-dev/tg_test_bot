@@ -3,6 +3,7 @@
 ## Issues Fixed
 1. ✅ ModuleNotFoundError: No module named 'dotenv'
 2. ✅ PermissionError: Permission denied: '/app/logs/bot.log'
+3. ✅ TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
 
 ## Complete Solution (Copy & Paste)
 

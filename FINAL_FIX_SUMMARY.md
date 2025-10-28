@@ -12,6 +12,11 @@
 **Fix:** Added `user: "1000:1000"` to docker-compose + proper directory ownership  
 **Status:** FIXED
 
+### Issue 3: TypeError (OpenAI) ✅
+**Error:** `TypeError: Client.__init__() got an unexpected keyword argument 'proxies'`  
+**Fix:** Downgraded to compatible package versions (openai==1.51.0, langchain-openai==0.2.5)  
+**Status:** FIXED
+
 ## What Was Changed
 
 ### 1. Dockerfile
