@@ -1,0 +1,37 @@
+# Environment
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Data
+data/*.db
+data/*.db-*
+receipts/*.jpg
+receipts/*.png
+admin_receipts/*.jpg
+admin_receipts/*.png
+logs/*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.pid

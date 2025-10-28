@@ -1,0 +1,17 @@
+# Telegram Bot
+python-telegram-bot==21.0
+
+# OpenAI & LangChain
+openai==1.54.3
+langchain==0.3.7
+langchain-openai==0.2.8
+
+# Image Processing
+Pillow==10.1.0
+
+# Utilities
+python-dotenv==1.0.0
+requests==2.31.0
+
+# Database
+# SQLite is built-in to Python
