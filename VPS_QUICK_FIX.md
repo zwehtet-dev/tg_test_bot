@@ -13,17 +13,21 @@ Run these commands on your VPS:
 # 1. Stop the container
 docker-compose down
 
-# 2. Remove old images (force clean)
+# 2. Create directories with proper permissions
+mkdir -p data receipts admin_receipts logs
+sudo chown -R 1000:1000 data receipts admin_receipts logs
+
+# 3. Remove old images (force clean)
 docker-compose rm -f
 docker rmi $(docker images -q thb-mmk-exchange-bot) 2>/dev/null || true
 
-# 3. Rebuild WITHOUT cache (this is critical!)
+# 4. Rebuild WITHOUT cache (this is critical!)
 docker-compose build --no-cache
 
-# 4. Start the bot
+# 5. Start the bot
 docker-compose up -d
 
-# 5. Watch logs to verify it works
+# 6. Watch logs to verify it works
 docker-compose logs -f
 ```
 

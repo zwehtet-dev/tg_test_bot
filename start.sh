@@ -48,10 +48,20 @@ fi
 echo "✅ .env file exists"
 echo ""
 
-# Create necessary directories
+# Create necessary directories with proper permissions
 echo "Creating necessary directories..."
 mkdir -p data receipts admin_receipts logs
-echo "✅ Directories created"
+
+# Set proper ownership (UID 1000 matches botuser in container)
+echo "Setting directory permissions..."
+if [ "$(id -u)" = "0" ]; then
+    # Running as root, set ownership to 1000:1000
+    chown -R 1000:1000 data receipts admin_receipts logs
+else
+    # Running as regular user, just ensure directories exist
+    chmod -R 755 data receipts admin_receipts logs
+fi
+echo "✅ Directories created and permissions set"
 echo ""
 
 # Build and start the bot

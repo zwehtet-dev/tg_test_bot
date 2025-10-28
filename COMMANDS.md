@@ -8,6 +8,8 @@ git clone <your-repo-url>
 cd currency_exchange_bot/tg_bot
 cp .env.example .env
 nano .env  # Edit with your credentials
+mkdir -p data receipts admin_receipts logs
+sudo chown -R 1000:1000 data receipts admin_receipts logs
 docker-compose build --no-cache
 docker-compose up -d
 ```
@@ -16,6 +18,13 @@ docker-compose up -d
 ```bash
 docker-compose down
 docker-compose build --no-cache
+docker-compose up -d
+```
+
+### Fix Permission Errors
+```bash
+docker-compose down
+sudo chown -R 1000:1000 data receipts admin_receipts logs
 docker-compose up -d
 ```
 

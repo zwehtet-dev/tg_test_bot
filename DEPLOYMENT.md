@@ -37,6 +37,15 @@ BALANCE_TOPIC_ID=3  # Your balance topic ID (default: 3)
 OPENAI_API_KEY=your_actual_openai_api_key_here
 ```
 
+### 2.5. Set Up Directory Permissions
+
+Create directories with proper permissions:
+
+```bash
+mkdir -p data receipts admin_receipts logs
+sudo chown -R 1000:1000 data receipts admin_receipts logs
+```
+
 ### 3. Start the Bot
 
 ```bash
