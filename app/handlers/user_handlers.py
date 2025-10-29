@@ -239,24 +239,35 @@ Ready to exchange? Choose your direction:
         
         # Check if amount is detected
         if receipt_info.get('amount'):
+            from app.utils.currency_utils import calculate_exchange
+            
             amount = float(receipt_info['amount'])
-            context.user_data['sent_amount'] = amount
             rate = self.db.get_current_rate()
             
-            # Calculate received amount based on direction
-            if exchange_direction == 'THB_TO_MMK':
-                received_amount = amount * rate
-                rate_text = f"1 THB = {rate} MMK"
-            else:  # MMK_TO_THB
-                received_amount = amount / rate
-                rate_text = f"1 THB = {rate} MMK"
+            # Calculate with proper rounding
+            sent_amount, received_amount = calculate_exchange(
+                amount, rate, from_currency, to_currency
+            )
             
+            context.user_data['sent_amount'] = sent_amount
             context.user_data['received_amount'] = received_amount
+            
+            rate_text = f"1 THB = {rate} MMK"
             
             # Build success message with detected info
             success_message = f"✅ **Receipt Processed Successfully!**\n\n"
-            success_message += f"💰 Amount detected: **{amount:,.0f} {from_currency}**\n"
-            success_message += f"📊 You will receive: **{received_amount:,.2f} {to_currency}**\n"
+            
+            # Format amounts based on currency
+            if from_currency == 'MMK':
+                success_message += f"💰 Amount detected: **{sent_amount:,.0f} {from_currency}**\n"
+            else:
+                success_message += f"💰 Amount detected: **{sent_amount:,.2f} {from_currency}**\n"
+            
+            if to_currency == 'MMK':
+                success_message += f"📊 You will receive: **{received_amount:,.0f} {to_currency}**\n"
+            else:
+                success_message += f"📊 You will receive: **{received_amount:,.2f} {to_currency}**\n"
+            
             success_message += f"📈 Rate: {rate_text}\n\n"
             
             # Show what was detected from receipt
@@ -308,27 +319,39 @@ Ready to exchange? Choose your direction:
                 raise ValueError("Amount must be positive")
             
             # Get exchange direction
+            from app.utils.currency_utils import calculate_exchange
+            
             exchange_direction = context.user_data.get('exchange_direction', 'THB_TO_MMK')
             from_currency = context.user_data.get('from_currency', 'THB')
             to_currency = context.user_data.get('to_currency', 'MMK')
             
-            context.user_data['sent_amount'] = amount
             rate = self.db.get_current_rate()
             
-            # Calculate received amount based on direction
-            if exchange_direction == 'THB_TO_MMK':
-                received_amount = amount * rate
-                rate_text = f"1 THB = {rate} MMK"
-            else:  # MMK_TO_THB
-                received_amount = amount / rate
-                rate_text = f"1 THB = {rate} MMK"
+            # Calculate with proper rounding
+            sent_amount, received_amount = calculate_exchange(
+                amount, rate, from_currency, to_currency
+            )
             
+            context.user_data['sent_amount'] = sent_amount
             context.user_data['received_amount'] = received_amount
+            
+            rate_text = f"1 THB = {rate} MMK"
+            
+            # Format amounts based on currency
+            if from_currency == 'MMK':
+                amount_text = f"{sent_amount:,.0f} {from_currency}"
+            else:
+                amount_text = f"{sent_amount:,.2f} {from_currency}"
+            
+            if to_currency == 'MMK':
+                receive_text = f"{received_amount:,.0f} {to_currency}"
+            else:
+                receive_text = f"{received_amount:,.2f} {to_currency}"
             
             await update.message.reply_text(
                 f"✅ **Amount Confirmed**\n\n"
-                f"💰 Amount: **{amount:,.0f} {from_currency}**\n"
-                f"📊 You will receive: **{received_amount:,.2f} {to_currency}**\n"
+                f"💰 Amount: **{amount_text}**\n"
+                f"📊 You will receive: **{receive_text}**\n"
                 f"📈 Rate: {rate_text}\n\n"
                 f"📝 **Step 2: Enter Your {to_currency} Bank Details**\n\n"
                 f"Please provide your receiving account information:\n\n"

@@ -113,6 +113,11 @@ class AdminHandlers:
     @admin_only
     async def handle_admin_receipt(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle admin receipt photo upload"""
+        # Check if message has a photo
+        if not update.message.photo:
+            logger.debug("No photo in message, skipping")
+            return
+        
         # Check if this is a reply to a transaction message
         if not update.message.reply_to_message:
             logger.debug("No reply_to_message found, skipping")
@@ -201,8 +206,110 @@ class AdminHandlers:
         
         logger.info(f"Admin receipt saved for transaction #{transaction_id}: {admin_receipt_path}")
         
-        # Get banks for the currency user will receive (to_currency)
+        # Verify receipt amount using OCR (only for MMK)
         to_currency = transaction.to_currency
+        expected_amount = transaction.received_amount
+        
+        logger.info(f"Starting receipt verification for transaction #{transaction_id}, currency: {to_currency}, expected: {expected_amount}")
+        
+        # Flag to track if verification passed
+        verification_passed = True
+        detected_amount = None
+        
+        if to_currency == 'MMK':
+            try:
+                logger.info(f"🔍 Running OCR on admin receipt for transaction #{transaction_id}")
+                receipt_info = self.ocr.extract_receipt_info(admin_receipt_path)
+                logger.info(f"OCR result for transaction #{transaction_id}: {receipt_info}")
+                
+                if receipt_info.get('amount'):
+                    detected_amount = float(receipt_info['amount'])
+                    logger.info(f"💰 Amount detected: {detected_amount} MMK (expected: {expected_amount} MMK)")
+                    
+                    # Allow 1000 MMK tolerance for OCR errors and rounding
+                    tolerance = 1000
+                    amount_diff = abs(detected_amount - expected_amount)
+                    
+                    if amount_diff > tolerance:
+                        # Amount mismatch - block proceeding
+                        verification_passed = False
+                        logger.warning(f"⚠️ AMOUNT MISMATCH in transaction #{transaction_id}: expected {expected_amount}, detected {detected_amount}, diff {amount_diff}")
+                        
+                        # Show warning with skip button
+                        skip_keyboard = [[InlineKeyboardButton(
+                            "⚠️ Skip Verification & Continue",
+                            callback_data=f"skip_verify_{transaction_id}"
+                        )]]
+                        skip_markup = InlineKeyboardMarkup(skip_keyboard)
+                        
+                        await update.message.reply_text(
+                            f"⚠️ **Amount Mismatch Detected**\n\n"
+                            f"Transaction #{transaction_id}\n"
+                            f"Expected: **{expected_amount:,.0f} MMK**\n"
+                            f"Detected: **{detected_amount:,.0f} MMK**\n"
+                            f"Difference: **{amount_diff:,.0f} MMK**\n\n"
+                            f"❌ **Cannot proceed with bank selection**\n\n"
+                            f"**Options:**\n"
+                            f"1. Upload the correct receipt (reply to this transaction again)\n"
+                            f"2. Click 'Skip Verification' below to proceed anyway",
+                            reply_markup=skip_markup,
+                            parse_mode='Markdown'
+                        )
+                        return  # Stop here, don't show bank selection
+                    else:
+                        # Amount within tolerance - update transaction with actual amount if different
+                        if amount_diff > 0:
+                            logger.info(f"✅ Amount verified for transaction #{transaction_id}: {detected_amount} MMK (diff: {amount_diff} MMK, within {tolerance} MMK tolerance)")
+                            logger.info(f"📝 Updating transaction #{transaction_id} received_amount from {expected_amount} to {detected_amount} MMK")
+                            
+                            # Update transaction with actual amount sent by admin
+                            self.db.update_transaction_received_amount(transaction_id, detected_amount)
+                            
+                            # Reload transaction to get updated amount
+                            transaction = self.db.get_transaction(transaction_id)
+                        else:
+                            logger.info(f"✅ Amount verified for transaction #{transaction_id}: {detected_amount} MMK (exact match)")
+                
+                    # Verify account name if detected (check multiple possible field names)
+                    detected_account_name = receipt_info.get('receiver_name') or receipt_info.get('receiver_account_name')
+                    if detected_account_name:
+                        expected_account_name = transaction.user_account_name
+                        
+                        logger.info(f"👤 Checking account name: detected '{detected_account_name}' vs expected '{expected_account_name}'")
+                        
+                        # Use the database validation method for fuzzy matching
+                        similarity = self.db._calculate_similarity(detected_account_name, expected_account_name)
+                        
+                        if similarity < 0.70:  # 70% similarity threshold
+                            # Account name mismatch warning (non-blocking)
+                            logger.warning(f"⚠️ ACCOUNT NAME MISMATCH in transaction #{transaction_id}: expected '{expected_account_name}', detected '{detected_account_name}', similarity {similarity:.2%}")
+                            
+                            await update.message.reply_text(
+                                f"⚠️ **Account Name Warning**\n\n"
+                                f"Transaction #{transaction_id}\n"
+                                f"Expected: **{expected_account_name}**\n"
+                                f"Detected: **{detected_account_name}**\n"
+                                f"Similarity: {similarity:.0%}\n\n"
+                                f"⚠️ Please verify you sent to the correct account!",
+                                parse_mode='Markdown'
+                            )
+                        else:
+                            logger.info(f"✅ Account name verified: '{detected_account_name}' matches '{expected_account_name}' ({similarity:.0%} similarity)")
+                    else:
+                        logger.warning(f"⚠️ Could not detect receiver account name in admin receipt #{transaction_id}")
+                        
+                else:
+                    logger.warning(f"⚠️ Could not detect amount in admin receipt #{transaction_id}. OCR result: {receipt_info}")
+                    # If OCR fails, allow to proceed (don't block)
+                    
+            except Exception as e:
+                logger.error(f"❌ Error verifying admin receipt amount for transaction #{transaction_id}: {e}", exc_info=True)
+                # If error, allow to proceed (don't block)
+        else:
+            logger.info(f"Skipping OCR verification for transaction #{transaction_id} (currency: {to_currency}, only MMK is verified)")
+        
+        # Only reach here if verification passed or was skipped
+        # Get banks for the currency user will receive (to_currency)
         bank_accounts = self.db.get_bank_accounts(to_currency)
         
         if not bank_accounts:
@@ -222,13 +329,19 @@ class AdminHandlers:
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         # Get transaction details for display
+        from app.utils.currency_utils import format_amount
+        
         sent_amount = transaction.sent_amount
         received_amount = transaction.received_amount
         user_bank = transaction.user_bank_name
         
+        # Format amounts based on currency
+        sent_text = format_amount(sent_amount, transaction.from_currency)
+        received_text = format_amount(received_amount, transaction.to_currency)
+        
         await update.message.reply_text(
             f"✅ **Receipt saved for Transaction #{transaction_id}**\n\n"
-            f"💰 Amount: {sent_amount:,.2f} {transaction.from_currency} → {received_amount:,.2f} {transaction.to_currency}\n"
+            f"💰 Amount: {sent_text} {transaction.from_currency} → {received_text} {transaction.to_currency}\n"
             f"🏦 User's Bank: {user_bank}\n\n"
             f"📤 **Select which {to_currency} bank you used for transfer:**",
             reply_markup=reply_markup,
@@ -335,12 +448,18 @@ Transaction #{transaction_id} cannot be processed
         # Update transaction status
         self.db.update_transaction_status(transaction_id, 'confirmed')
         
-        await query.edit_message_text(
-            f"{query.message.text}\n\n"
-            f"✅ **Transaction #{transaction_id} Confirmed**\n"
-            f"{to_currency} Bank: {bank}\n"
-            f"Amount: {received_amount:,.2f} {to_currency}"
-        )
+        # Try to edit message, if fails (message not modified), just answer the callback
+        try:
+            await query.edit_message_text(
+                f"✅ **Transaction #{transaction_id} Confirmed**\n\n"
+                f"{to_currency} Bank: {bank}\n"
+                f"Amount: {received_amount:,.2f} {to_currency}\n\n"
+                f"Transaction completed successfully!"
+            )
+        except Exception as e:
+            # If edit fails (e.g., message not modified), just answer callback
+            logger.debug(f"Could not edit message: {e}")
+            await query.answer("✅ Transaction confirmed!")
         
         # Send balance update to balance topic
         await self._send_balance_update(
@@ -351,10 +470,15 @@ Transaction #{transaction_id} cannot be processed
         
         # Notify user with admin receipt photo
         try:
+            from app.utils.currency_utils import format_amount
+            
+            sent_text = format_amount(sent_amount, from_currency)
+            received_text = format_amount(received_amount, to_currency)
+            
             notification_text = (
                 f"✅ **Payment Confirmed!**\n\n"
                 f"Transaction ID: #{transaction_id}\n"
-                f"Amount: {sent_amount:,.2f} {from_currency} → {received_amount:,.2f} {to_currency}\n\n"
+                f"Amount: {sent_text} {from_currency} → {received_text} {to_currency}\n\n"
                 f"The money has been transferred to your account.\n"
                 f"Thank you for using our service! 💚"
             )
@@ -453,6 +577,61 @@ Transaction #{transaction_id} cannot be processed
         except Exception as e:
             logger.error(f"Error sending balance update: {e}")
     
+    @admin_group_only_callback
+    async def skip_verification_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle skip verification button - proceed despite amount mismatch"""
+        query = update.callback_query
+        await query.answer()
+        
+        transaction_id = int(query.data.split('_')[2])
+        
+        logger.warning(f"⚠️ Admin skipped verification for transaction #{transaction_id}")
+        
+        # Get transaction
+        transaction = self.db.get_transaction(transaction_id)
+        if not transaction:
+            await query.edit_message_text("❌ Transaction not found.")
+            return
+        
+        # Get banks for the currency user will receive
+        to_currency = transaction.to_currency
+        bank_accounts = self.db.get_bank_accounts(to_currency)
+        
+        if not bank_accounts:
+            await query.edit_message_text(
+                f"❌ No {to_currency} bank accounts configured."
+            )
+            return
+        
+        # Build bank selection keyboard
+        keyboard = []
+        for account in bank_accounts:
+            keyboard.append([InlineKeyboardButton(
+                f"{account.display}", 
+                callback_data=f"bank_{account.bank_name}_{transaction_id}"
+            )])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Update message to show bank selection
+        from app.utils.currency_utils import format_amount
+        
+        sent_amount = transaction.sent_amount
+        received_amount = transaction.received_amount
+        user_bank = transaction.user_bank_name
+        
+        sent_text = format_amount(sent_amount, transaction.from_currency)
+        received_text = format_amount(received_amount, transaction.to_currency)
+        
+        await query.edit_message_text(
+            f"⚠️ **Verification Skipped by Admin**\n\n"
+            f"Transaction #{transaction_id}\n"
+            f"💰 Amount: {sent_text} {transaction.from_currency} → {received_text} {transaction.to_currency}\n"
+            f"🏦 User's Bank: {user_bank}\n\n"
+            f"📤 **Select which {to_currency} bank you used for transfer:**",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
 
     
     @admin_group_only_callback

@@ -10,6 +10,8 @@ A Telegram bot for managing currency exchange between Thai Baht (THB) and Myanma
 - 🏦 **Multi-Bank Support**: 9 pre-configured bank accounts (2 THB, 7 MMK)
 - 👥 **Admin Controls**: Transaction approval, bank management, rate updates
 - 📊 **Balance Reports**: Automated balance updates in dedicated topic
+- 🔢 **Smart Rounding**: MMK amounts automatically rounded to nearest 50 (51-99 rounds up)
+- ✅ **Receipt Verification**: Admin receipts verified for correct MMK amounts
 - 🔒 **Security**: Role-based access control and validation
 
 ## Quick Start with Docker

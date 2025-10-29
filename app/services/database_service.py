@@ -492,6 +492,27 @@ class DatabaseService:
         finally:
             conn.close()
     
+    def update_transaction_received_amount(self, transaction_id: int, received_amount: float):
+        """Update received amount for a transaction (when actual amount differs from calculated)"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                UPDATE transactions 
+                SET received_amount = ?
+                WHERE id = ?
+            """, (received_amount, transaction_id))
+            
+            conn.commit()
+            logger.info(f"Transaction #{transaction_id} received_amount updated to {received_amount}")
+            
+        except Exception as e:
+            logger.error(f"Error updating received amount: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
+    
     def get_recent_transactions(self, limit: int = 10) -> List[Transaction]:
         """Get recent transactions"""
         conn = self.get_connection()

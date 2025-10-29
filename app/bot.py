@@ -134,6 +134,9 @@ class ExchangeBot:
             CallbackQueryHandler(self.admin_handlers.admin_bank_selection_callback, pattern="^bank_")
         )
         self.application.add_handler(
+            CallbackQueryHandler(self.admin_handlers.skip_verification_callback, pattern="^skip_verify_")
+        )
+        self.application.add_handler(
             CallbackQueryHandler(self.admin_handlers.admin_cancel_callback, pattern="^cancel_")
         )
         
