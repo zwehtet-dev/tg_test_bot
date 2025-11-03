@@ -38,18 +38,18 @@ class AdminHandlers:
         """Show current balances (admin only)"""
         balances = self.db.get_balances()
         
-        message = "💰 **Current Bank Balances:**\n\n"
+        message = ""
         
         current_currency = None
         for currency, bank, balance, display_name in balances:
             if currency != current_currency:
                 if current_currency is not None:
                     message += "\n"
-                message += f"**{currency}:**\n"
+                message += f"**{currency}**\n"
                 current_currency = currency
             # Use display_name if available, otherwise fall back to bank name
             display = display_name if display_name else 'No Display Name'
-            message += f"• {display}: {balance:,.2f}\n"
+            message += f"{display} - {balance:,.2f}\n"
         
         await update.message.reply_text(message, parse_mode='Markdown')
     
@@ -505,53 +505,27 @@ Transaction #{transaction_id} cannot be processed
                                    from_bank, to_bank, from_before, from_after, to_before, to_after,
                                    from_currency='THB', to_currency='MMK'):
         """Send balance update to balance topic"""
-        balance_message = f"""💰 **Balance Update - Transaction #{transaction_id}**
-
-"""
-        
-        # Add from currency section if bank info is available
-        if from_bank and from_before is not None and from_after is not None:
-            balance_message += f"""📊 **{from_currency} Account ({from_bank}):**
-• Before: {from_before:,.2f} {from_currency}
-• Change: +{from_amount:,.2f} {from_currency}
-• After: {from_after:,.2f} {from_currency}
-
-"""
-        elif from_bank:
-            balance_message += f"""📊 **{from_currency} Account ({from_bank}):**
-• Change: +{from_amount:,.2f} {from_currency} (already applied when receipt submitted)
-
-"""
-        
-        balance_message += f"""📊 **{to_currency} Account ({to_bank}):**
-• Before: {to_before:,.2f} {to_currency}
-• Change: -{to_amount:,.2f} {to_currency}
-• After: {to_after:,.2f} {to_currency}
-
-⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-"""
+        balance_message = ""
         
         # Add balance overview
         balances = self.db.get_balances()
         if balances:
-            balance_message += "💰 **Current Bank Balances:**\n"
             
             # Group by currency
             mmk_balances = [(bank, balance, display) for currency, bank, balance, display in balances if currency == 'MMK']
             thb_balances = [(bank, balance, display) for currency, bank, balance, display in balances if currency == 'THB']
             
             if mmk_balances:
-                balance_message += "\n**MMK:**\n"
+                balance_message += "\n**MMK**\n"
                 for bank, balance, display in mmk_balances:
                     display_name = display if display else bank
-                    balance_message += f"• {display_name}: {balance:,.2f}\n"
+                    balance_message += f"{display_name} - {balance:,.2f}\n"
             
             if thb_balances:
-                balance_message += "\n**THB:**\n"
+                balance_message += "\n**THB**\n"
                 for bank, balance, display in thb_balances:
                     display_name = display if display else bank
-                    balance_message += f"• {display_name}: {balance:,.2f}\n"
+                    balance_message += f"{display_name} - {balance:,.2f}\n"
         
         try:
             # Get balance topic from database
@@ -645,10 +619,21 @@ Transaction #{transaction_id} cannot be processed
         # Update transaction status
         self.db.update_transaction_status(transaction_id, 'cancelled')
         
-        await query.edit_message_text(
-            f"{query.message.text}\n\n"
-            f"❌ Transaction #{transaction_id} cancelled."
-        )
+        # Try to edit message, handle if message has no text (e.g., photo)
+        try:
+            if query.message.text:
+                await query.edit_message_text(
+                    f"{query.message.text}\n\n"
+                    f"❌ Transaction #{transaction_id} cancelled."
+                )
+            else:
+                # Message has no text (probably a photo), send new message
+                await query.message.reply_text(
+                    f"❌ Transaction #{transaction_id} cancelled."
+                )
+        except Exception as e:
+            logger.debug(f"Could not edit message: {e}")
+            await query.answer("❌ Transaction cancelled!")
         
         # Notify user
         transaction = self.db.get_transaction(transaction_id)

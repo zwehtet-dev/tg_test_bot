@@ -44,15 +44,6 @@ class Config:
     
     # Initial Balances (currency, bank_name, balance)
     INITIAL_BALANCES: List[Tuple[str, str, float]] = [
-        # THB Banks
-        ('THB', 'KrungthaiBank', 150000),
-        ('THB', 'PromptPay', 150000),
-        ('THB', 'SiamCommercialBank', 150000),
-        # MMK Banks
-        ('MMK', 'KBZ', 1500000),
-        ('MMK', 'AYA', 1500000),
-        ('MMK', 'KPay', 1500000),
-        ('MMK', 'Wave', 1500000),
     ]
     
     # File Paths

@@ -459,16 +459,14 @@ Ready to exchange? Choose your direction:
             account_name,
             admin_receiving_bank
         )
+
+        calculation_symbol = 'x' if from_currency == 'THB' or to_currency == 'MMK' else '/'
         
         await update.message.reply_text(
-            f"✅ **Request Submitted Successfully!**\n\n"
-            f"📋 **Transaction ID:** #{transaction_id}\n\n"
-            f"💰 **Amount:** {sent_amount:,.0f} {from_currency} → {received_amount:,.2f} {to_currency}\n"
-            f"📈 **Rate:** 1 THB = {rate} MMK\n"
-            f"🏦 **Your Bank:** {bank_name}\n\n"
-            f"⏳ Our team is processing your request.\n"
-            f"You will receive a confirmation once the transfer is complete.\n\n"
-            f"Thank you for using our service! 💚",
+            f"**Buy {sent_amount} {calculation_symbol} {rate} = {received_amount:,.2f} **\n\n"
+            f"{account_number}\n"
+            f"{account_name}\n"
+            f"{bank_name}\n",
             parse_mode='Markdown'
         )
         
@@ -510,29 +508,18 @@ Ready to exchange? Choose your direction:
         
         # Format message based on exchange direction
         if exchange_direction == 'THB_TO_MMK':
-            title = f"[User Receipt] Buy {sent_amount:,.0f} × {rate} = **{received_amount:,.0f}**"
-            calculation = f"Buy {sent_amount:,.0f} THB × {rate} = **{received_amount:,.0f} MMK**"
+            title = f"Buy {sent_amount:,.0f} × {rate} = **{received_amount:,.0f}**"
+            # calculation = f"Buy {sent_amount:,.0f} THB × {rate} = **{received_amount:,.0f} MMK**"
         else:  # MMK_TO_THB
-            title = f"[User Receipt] Buy {sent_amount:,.0f} / {rate} = **{received_amount:,.2f}**"
-            calculation = f"Buy {sent_amount:,.0f} MMK / {rate} = **{received_amount:,.2f} THB**"
+            title = f"Buy {sent_amount:,.0f} / {rate} = **{received_amount:,.0f}**"
+            # calculation = f"Buy {sent_amount:,.0f} MMK / {rate} = **{received_amount:,.2f} THB**"
         
         admin_message = f"""{title}
 
-👤 **User:** @{user.username or user.first_name} (ID: {user.id})
+{user_account_number}
+{user_account_name}
+{user_bank_name}
 
-� **Exchange:** {from_currency} → {to_currency}
-📊 **Calculation:** {calculation}
-
-🏦 **To:**
-Bank: {user_bank_name}
-Account: {user_account_number}
-Name: {user_account_name}
-
-📥 **Received at:** {admin_receiving_bank}
-
-⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-📸 **Please reply to this message with your transfer receipt**
 """
         
         keyboard = [
